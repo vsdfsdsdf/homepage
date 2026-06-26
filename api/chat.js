@@ -66,18 +66,21 @@ module.exports = async function handler(req, res) {
     return rows[0];
   }
 
+  // Supabase 로깅 (실패해도 챗봇 동작에 영향 없음)
+  let sid = session_id;
   try {
-    // 세션 확보
-    let sid = session_id;
     if (!sid) {
       const session = await sbInsert('chat_sessions', {});
-      sid = session.id;
+      sid = session?.id || null;
     }
-
-    // 유저 마지막 메시지 저장
     const lastUser = [...messages].reverse().find(m => m.role === 'user');
-    if (lastUser) await sbInsert('chat_messages', { session_id: sid, role: 'user', content: lastUser.content });
+    if (lastUser && sid) await sbInsert('chat_messages', { session_id: sid, role: 'user', content: lastUser.content });
+  } catch (e) {
+    console.error('[supabase log error]', e.message);
+    sid = null;
+  }
 
+  try {
     const apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -100,8 +103,12 @@ module.exports = async function handler(req, res) {
     const data = await apiRes.json();
     const reply = data.choices?.[0]?.message?.content?.trim() || '답변을 생성하지 못했습니다.';
 
-    // 어시스턴트 응답 저장
-    await sbInsert('chat_messages', { session_id: sid, role: 'assistant', content: reply });
+    // 어시스턴트 응답 저장 (실패해도 무시)
+    if (sid) {
+      sbInsert('chat_messages', { session_id: sid, role: 'assistant', content: reply }).catch(e =>
+        console.error('[supabase log error]', e.message)
+      );
+    }
 
     return res.status(200).json({ reply, session_id: sid });
   } catch (e) {
