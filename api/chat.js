@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { return res.status(204).end(); }
   if (req.method !== 'POST') { return res.status(405).json({ error: 'Method Not Allowed' }); }
 
-  const { messages } = req.body;
+  const { messages } = req.body || {};
   if (!Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
   }
