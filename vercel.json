@@ -3,6 +3,8 @@
     "api/chat.js": {
       "includeFiles": "uploads/**"
     },
-    "api/contact.js": {}
+    "api/contact.js": {
+      "maxDuration": 10
+    }
   }
 }
