@@ -2,12 +2,21 @@ const fs = require('fs');
 const path = require('path');
 
 function loadKnowledgeBase() {
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  const files = fs.readdirSync(uploadsDir).filter(f => f.endsWith('.md'));
-  return files.map(f => {
-    const content = fs.readFileSync(path.join(uploadsDir, f), 'utf8');
-    return `=== ${f} ===\n${content}`;
-  }).join('\n\n');
+  const candidates = [
+    path.join(__dirname, '..', 'uploads'),
+    path.join(process.cwd(), 'uploads'),
+  ];
+  for (const uploadsDir of candidates) {
+    try {
+      const files = fs.readdirSync(uploadsDir).filter(f => f.endsWith('.md'));
+      if (files.length === 0) continue;
+      return files.map(f => {
+        const content = fs.readFileSync(path.join(uploadsDir, f), 'utf8');
+        return `=== ${f} ===\n${content}`;
+      }).join('\n\n');
+    } catch (_) { continue; }
+  }
+  return '';
 }
 
 const KNOWLEDGE = loadKnowledgeBase();
