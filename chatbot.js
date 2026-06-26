@@ -4,6 +4,7 @@
   const HISTORY_LIMIT = 10;
 
   const history = [];
+  let sessionId = null;
 
   /* ── DOM 생성 ── */
   const style = document.createElement('style');
@@ -237,7 +238,7 @@
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history })
+        body: JSON.stringify({ messages: history, session_id: sessionId })
       });
 
       typingEl.remove();
@@ -246,6 +247,7 @@
 
       const data = await res.json();
       const reply = data.reply || '답변을 가져오지 못했습니다.';
+      if (data.session_id) sessionId = data.session_id;
 
       history.push({ role: 'assistant', content: reply });
       if (history.length > HISTORY_LIMIT) history.splice(0, history.length - HISTORY_LIMIT);

@@ -33,12 +33,42 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { return res.status(204).end(); }
   if (req.method !== 'POST') { return res.status(405).json({ error: 'Method Not Allowed' }); }
 
-  const { messages } = req.body || {};
+  const { messages, session_id } = req.body || {};
   if (!Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
   }
 
+  const SB_URL = process.env.SUPABASE_URL;
+  const SB_KEY = process.env.SUPABASE_SERVICE_KEY;
+  const sbHeaders = {
+    'Content-Type': 'application/json',
+    'apikey': SB_KEY,
+    'Authorization': `Bearer ${SB_KEY}`,
+  };
+
+  async function sbInsert(table, data) {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: { ...sbHeaders, 'Prefer': 'return=representation' },
+      body: JSON.stringify(data),
+    });
+    if (!r.ok) throw new Error(`Supabase ${table} error: ${await r.text()}`);
+    const rows = await r.json();
+    return rows[0];
+  }
+
   try {
+    // 세션 확보
+    let sid = session_id;
+    if (!sid) {
+      const session = await sbInsert('chat_sessions', {});
+      sid = session.id;
+    }
+
+    // 유저 마지막 메시지 저장
+    const lastUser = [...messages].reverse().find(m => m.role === 'user');
+    if (lastUser) await sbInsert('chat_messages', { session_id: sid, role: 'user', content: lastUser.content });
+
     const apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -61,7 +91,10 @@ module.exports = async function handler(req, res) {
     const data = await apiRes.json();
     const reply = data.choices?.[0]?.message?.content?.trim() || '답변을 생성하지 못했습니다.';
 
-    return res.status(200).json({ reply });
+    // 어시스턴트 응답 저장
+    await sbInsert('chat_messages', { session_id: sid, role: 'assistant', content: reply });
+
+    return res.status(200).json({ reply, session_id: sid });
   } catch (e) {
     console.error('[chat error]', e.message);
     return res.status(500).json({ error: 'internal server error' });

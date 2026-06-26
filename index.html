@@ -472,7 +472,15 @@ class Component extends DCLogic {
       menuRef: this.menuRef,
       toggleMenu: () => this.toggleMenu(),
       closeMenu: () => this.closeMenu(),
-      onSubmit: (e) => { e.preventDefault(); this.setState({ sent: true }); window.scrollTo({ top: window.scrollY }); },
+      onSubmit: async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target));
+        try {
+          await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        } catch (_) {}
+        this.setState({ sent: true });
+        window.scrollTo({ top: window.scrollY });
+      },
       resetForm: () => this.setState({ sent: false }),
       sent: this.state.sent,
       notSent: !this.state.sent
